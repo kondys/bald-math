@@ -115,7 +115,7 @@ export default class extends Phaser.State {
 
 
       answerSound.onStop.addOnce(()=>{
-        video.stop();
+        this.video.stop();
 
         if(this.currentQuestion>2){
           this.currentQuestion = 0;
