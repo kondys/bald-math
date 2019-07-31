@@ -6,18 +6,27 @@ export default class extends Phaser.State {
   preload() { 
     this.loaded=false;
     this.game.load.image('gameboard', 'assets/images/gameboard_v2.png');
-    this.game.load.image('tick', 'assets/images/green_tick.png');
+    this.game.load.spritesheet('answersprite', 'assets/images/answer_sprites.png', 48, 48, 2);
+    
     this.game.load.spritesheet('numbersprite', 'assets/images/number_sprite.png', 50, 50, 12);
     this.game.load.spritesheet('oksprite', 'assets/images/ok_button.png', 158, 158, 1);
     
     this.game.load.video('baldi', 'assets/video/baldi_talking.mp4');
+    this.game.load.video('sad_baldi', 'assets/video/baldi_sad.mp4');
 
     this.game.load.audio('MainMenu', 'assets/audio/BAL_MainMenu.wav');
     this.game.load.audio('minus', 'assets/audio/BAL_Math_Minus.wav');
     this.game.load.audio('plus', 'assets/audio/BAL_Math_Plus.wav');
+    this.game.load.audio('incorrect', 'assets/audio/BAL_Screech.wav');
+
+    
     for (var i = 0; i < 10; i++) {
       this.game.load.audio(`number_${i}`, `assets/audio/BAL_Math_${i}.wav`);
     }
+    for (var i = 1; i < 5; i++) {
+      this.game.load.audio(`praise_${i}`, `assets/audio/BAL_Praise${i}.wav`);
+    }
+
     this.game.load.onLoadComplete.add(loadComplete, this);
 
     function loadComplete(){
@@ -41,16 +50,30 @@ export default class extends Phaser.State {
     video.addToWorld(220*scale, 470*scale,0,0,scale,scale);
     this.video = video;
 
+    var sadBaldi = this.game.add.video('sad_baldi', .5, .5);
+    this.sadBaldi = sadBaldi;
+
     this.enterAnswer = this.game.add.text(scale*410,scale*496, 'ENTER ANSWER', {font: "50px 'Comic Sans MS'"});
     this.enterAnswer.addColor('#cdcdcd',0);
     this.scaleText(this.enterAnswer, 280 * scale, 80* scale );
 
+    this.processingAnswer=false;
+    this.currentQuestion=0;
+    this.answerImage= [];
+    this.answerImage[0] = this.game.add.sprite(scale*234, scale*236, 'answersprite');
+    this.answerImage[0].scale.setTo(scale, scale);
+    this.answerImage[0].alpha=0;
+
+    this.answerImage[1] = this.game.add.sprite(scale*228, scale*310, 'answersprite');
+    this.answerImage[1].scale.setTo(scale*0.9, scale*0.9);
+    this.answerImage[1].alpha=0;
+
+    this.answerImage[2] = this.game.add.sprite(scale*228, scale*388, 'answersprite');
+    this.answerImage[2].scale.setTo(scale*.8, scale*.8);
+    this.answerImage[2].alpha=0;
     
-    var tick = this.game.add.button(scale*234, scale*236, 'tick', ()=>{}, this, 0, 0, 0);
-    tick.scale.setTo(scale, scale);
 
     this.answerText = this.game.add.text(scale*410,scale*496, '', {font: "50px 'Comic Sans MS'"});
-    this.answerText.fontSize = this.enterAnswer.fontSize;
 
     this.question = this.game.add.text(scale*340,scale*330, '', {font: "50px 'Comic Sans MS'"});
     this.scaleText(this.question, 350 * scale, 80* scale );
@@ -63,10 +86,54 @@ export default class extends Phaser.State {
     okbutton.scale.setTo(scale, scale);
 
     function okClick(){
+      if(this.processingAnswer) return;
+
+      this.processingAnswer = true;
+      var answerCorrect = this.answer == parseInt(that.answerText.text) ;
       
+      var answerSound;
+      if(answerCorrect){
+        this.answerImage[this.currentQuestion].frame=0;
+        var randomPraise = Math.floor(Math.random() * 5) + 1; 
+        console.log('randomPraise',randomPraise)
+        answerSound = game.add.audio(`praise_${randomPraise}`);
+        this.video.play(true);
+      }
+      else{
+        this.answerImage[this.currentQuestion].frame=1;
+        answerSound = game.add.audio(`incorrect`);
+        var sadBaldiWorld = sadBaldi.addToWorld(220*scale, 470*scale,0,0,scale,scale);
+        this.sadBaldi.play(false);
+
+        this.sadBaldi.onComplete.addOnce(()=>{
+          sadBaldiWorld.destroy();
+        })
+      }
+
+      this.answerImage[this.currentQuestion].alpha=1;
+      this.currentQuestion++;
+
+
+      answerSound.onStop.addOnce(()=>{
+        video.stop();
+
+        if(this.currentQuestion>2){
+          this.currentQuestion = 0;
+  
+          this.answerImage[0].alpha=0;
+          this.answerImage[1].alpha=0;
+          this.answerImage[2].alpha=0;
+        }
+
+        this.generateQuestion();
+      }, this);
+      answerSound.play();
+
     }
 
     function numberButton(number){
+      if(that.processingAnswer) return;
+
       that.enterAnswer.visible = false;
       that.answerText.text+=number+'';
       var  s = game.add.audio(`number_${number}`).play();
@@ -76,8 +143,10 @@ export default class extends Phaser.State {
       });
     }
     function minusButton(){
+      if(that.processingAnswer) return;
+
       that.enterAnswer.visible = false;
-      that.answerText.text+= ' - ';
+      that.answerText.text= '-';
       var s = game.add.audio(`minus`).play();
       video.play(false);
       s.onStop.add(()=>{
@@ -85,6 +154,8 @@ export default class extends Phaser.State {
       });
     }
     function clearButton(){
+      if(that.processingAnswer) return;
+
       that.answerText.text='';
       that.enterAnswer.visible = true;
     }
@@ -117,12 +188,12 @@ export default class extends Phaser.State {
   
 
   generateQuestion(){
+    this.answerText.text= '';
     var firstNumber = Math.floor(Math.random() * 10);
     var secondNumber = Math.floor(Math.random() * 10);
 
     this.answer = firstNumber + secondNumber;
     this.question.text = `${firstNumber} + ${secondNumber} =`;
-
 
     var n1Sound = game.add.audio(`number_${firstNumber}`);
     var plusSound =game.add.audio(`plus`);
@@ -136,6 +207,7 @@ export default class extends Phaser.State {
     }, this);
     n2Sound.onStop.add(()=>{
       this.video.stop();
+      this.processingAnswer=false;
     }, this);
     n1Sound.play();
     this.video.play(true);
