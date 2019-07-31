@@ -23,7 +23,7 @@ export default class extends Phaser.State {
     for (var i = 0; i < 10; i++) {
       this.game.load.audio(`number_${i}`, `assets/audio/BAL_Math_${i}.wav`);
     }
-    for (var i = 1; i < 5; i++) {
+    for (var i = 1; i <= 5; i++) {
       this.game.load.audio(`praise_${i}`, `assets/audio/BAL_Praise${i}.wav`);
     }
 
